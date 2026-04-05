@@ -67,7 +67,19 @@ const httpServer = createServer(async (req, res) => {
 
 // Servidor WebSocket para subscriptions
 const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" });
-useServer({ schema }, wsServer);
+useServer({
+  schema,
+  context: async (ctx) => {
+    // O token JWT vem em connectionParams quando o cliente abre a conexão WS
+    const token = (ctx.connectionParams?.["Authorization"] as string | undefined)
+      ?? (ctx.connectionParams?.["authorization"] as string | undefined)
+      ?? "";
+
+    // Reutiliza a mesma lógica de contexto do HTTP, simulando um IncomingMessage
+    const fakeReq = { headers: { authorization: token } } as import("http").IncomingMessage;
+    return createContext(fakeReq);
+  },
+}, wsServer);
 
 const port = Number(process.env["PORT"] ?? 4000);
 
