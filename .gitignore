@@ -11,7 +11,7 @@ dist/
 uploads/
 
 # Generated files
-/generated/prisma
+src/generated/
 src/graphql/generated/
 
 # Logs

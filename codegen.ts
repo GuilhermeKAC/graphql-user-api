@@ -7,10 +7,11 @@ const config: CodegenConfig = {
       plugins: ["typescript", "typescript-resolvers"],
       config: {
         useIndexSignature: true,
-        contextType: "../context/index#GraphQLContext",
+        useTypeImports: true,
+        contextType: "../context/index.js#GraphQLContext",
         scalars: {
           DateTime: "Date",
-          Upload: "Promise<import('graphql-upload/processRequest.js').FileUpload>",
+          Upload: "unknown",
           JSON: "Record<string, unknown>",
         },
       },
