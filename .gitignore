@@ -11,6 +11,7 @@ dist/
 uploads/
 
 # Generated files
+generated/
 src/generated/
 src/graphql/generated/
 
