@@ -3,7 +3,12 @@ type AuthPayload {
   user: User!
 }
 
-type Mutation {
+# Tipos base — todos os outros arquivos usam extend type
+type Query
+type Mutation
+type Subscription
+
+extend type Mutation {
   login(email: String!, password: String!): AuthPayload!
   register(data: CreateUserInput!): AuthPayload!
 }

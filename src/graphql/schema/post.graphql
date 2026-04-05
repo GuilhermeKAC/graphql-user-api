@@ -22,6 +22,26 @@ type Comment {
   post: Post!
 }
 
+# ── Connection (cursor-based pagination) ──
+
+type PostEdge {
+  cursor: String!
+  node: Post!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type PostConnection {
+  edges: [PostEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
 # ── Inputs ────────────────────────────────
 
 input CreatePostInput {
@@ -41,6 +61,39 @@ input CreateCommentInput {
   content: String!
 }
 
+# Filtros avançados com AND/OR
+input PostWhereInput {
+  AND: [PostWhereInput!]
+  OR: [PostWhereInput!]
+  NOT: PostWhereInput
+  title: StringFilterInput
+  published: BooleanFilterInput
+  authorId: StringFilterInput
+}
+
+input StringFilterInput {
+  equals: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  in: [String!]
+}
+
+input BooleanFilterInput {
+  equals: Boolean
+}
+
+input PostOrderByInput {
+  createdAt: SortOrder
+  title: SortOrder
+  likesCount: SortOrder
+}
+
+enum SortOrder {
+  asc
+  desc
+}
+
 input PostsFilterInput {
   authorId: ID
   published: Boolean
@@ -48,25 +101,31 @@ input PostsFilterInput {
 
 # ── Queries & Mutations ───────────────────
 
-type Query {
+extend type Query {
   post(id: ID!): Post
+  # Query original (offset-based) — mantida para compatibilidade
   posts(filter: PostsFilterInput, pagination: PaginationInput): [Post!]!
+  # Nova query com cursor-based pagination e filtros avançados
+  postsConnection(
+    where: PostWhereInput
+    orderBy: PostOrderByInput
+    first: Int
+    after: String
+  ): PostConnection!
   comments(postId: ID!, pagination: PaginationInput): [Comment!]!
 }
 
-type Mutation {
-  createPost(data: CreatePostInput!): Post!
-  updatePost(id: ID!, data: UpdatePostInput!): Post!
-  deletePost(id: ID!): Boolean!
-  likePost(postId: ID!): Boolean!
-  unlikePost(postId: ID!): Boolean!
-  createComment(data: CreateCommentInput!): Comment!
-  deleteComment(id: ID!): Boolean!
+extend type Mutation {
+  createPost(data: CreatePostInput!): Post! @auth
+  updatePost(id: ID!, data: UpdatePostInput!): Post! @auth
+  deletePost(id: ID!): Boolean! @auth
+  likePost(postId: ID!): Boolean! @auth
+  unlikePost(postId: ID!): Boolean! @auth
+  createComment(data: CreateCommentInput!): Comment! @auth
+  deleteComment(id: ID!): Boolean! @auth
 }
 
-# ── Subscriptions ─────────────────────────
-
-type Subscription {
+extend type Subscription {
   postCreated: Post!
   postUpdated(id: ID!): Post!
   commentAdded(postId: ID!): Comment!

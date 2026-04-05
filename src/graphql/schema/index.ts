@@ -4,10 +4,13 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { resolvers } from "../resolvers/index.js";
+import { applyAuthDirective } from "../directives/auth.directive.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const typesArray = loadFilesSync(join(__dirname, "./**/*.graphql"));
 const typeDefs = mergeTypeDefs(typesArray);
 
-export const schema = makeExecutableSchema({ typeDefs, resolvers });
+const baseSchema = makeExecutableSchema({ typeDefs, resolvers });
+
+export const schema = applyAuthDirective(baseSchema);

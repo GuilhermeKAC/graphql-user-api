@@ -51,17 +51,17 @@ input PaginationInput {
 
 # ── Queries & Mutations ───────────────────
 
-type Query {
-  me: User!
+extend type Query {
+  me: User! @auth
   user(id: ID!): User
-  users(filter: UsersFilterInput, pagination: PaginationInput): [User!]!
+  users(filter: UsersFilterInput, pagination: PaginationInput): [User!]! @auth(requires: ADMIN)
 }
 
-type Mutation {
+extend type Mutation {
   createUser(data: CreateUserInput!): User!
-  updateUser(data: UpdateUserInput!): User!
-  deleteUser: Boolean!
-  uploadProfilePicture(file: Upload!): User!
-  followUser(userId: ID!): Boolean!
-  unfollowUser(userId: ID!): Boolean!
+  updateUser(data: UpdateUserInput!): User! @auth
+  deleteUser: Boolean! @auth
+  uploadProfilePicture(file: Upload!): User! @auth
+  followUser(userId: ID!): Boolean! @auth
+  unfollowUser(userId: ID!): Boolean! @auth
 }

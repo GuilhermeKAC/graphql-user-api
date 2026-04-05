@@ -1,3 +1,11 @@
 scalar DateTime
 scalar Upload
 scalar JSON
+
+enum AuthRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+directive @auth(requires: AuthRole = USER) on FIELD_DEFINITION | OBJECT

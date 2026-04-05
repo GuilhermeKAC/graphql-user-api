@@ -1,7 +1,39 @@
 import type { QueryResolvers, MutationResolvers, PostResolvers, CommentResolvers } from "../generated/types.js";
 import pubsub, { EVENTS } from "../../config/pubsub.js";
 
-export const postQueryResolvers: Pick<QueryResolvers, "post" | "posts" | "comments"> = {
+// Converte ID para cursor base64
+function encodeCursor(id: string): string {
+  return Buffer.from(`cursor:${id}`).toString("base64");
+}
+
+// Converte cursor base64 de volta para ID
+function decodeCursor(cursor: string): string {
+  return Buffer.from(cursor, "base64").toString("utf8").replace("cursor:", "");
+}
+
+// Converte PostWhereInput do GraphQL para o formato do Prisma
+function buildPrismaWhere(where: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  if (!where) return {};
+
+  const result: Record<string, unknown> = {};
+
+  if (where["AND"]) {
+    result["AND"] = (where["AND"] as unknown[]).map((w) => buildPrismaWhere(w as Record<string, unknown>));
+  }
+  if (where["OR"]) {
+    result["OR"] = (where["OR"] as unknown[]).map((w) => buildPrismaWhere(w as Record<string, unknown>));
+  }
+  if (where["NOT"]) {
+    result["NOT"] = buildPrismaWhere(where["NOT"] as Record<string, unknown>);
+  }
+  if (where["title"]) result["title"] = where["title"];
+  if (where["published"]) result["published"] = (where["published"] as Record<string, unknown>)["equals"];
+  if (where["authorId"]) result["authorId"] = where["authorId"];
+
+  return result;
+}
+
+export const postQueryResolvers: Pick<QueryResolvers, "post" | "posts" | "postsConnection" | "comments"> = {
   post: (_parent, { id }, { prisma }) => {
     return prisma.post.findUnique({ where: { id } });
   },
@@ -16,6 +48,47 @@ export const postQueryResolvers: Pick<QueryResolvers, "post" | "posts" | "commen
       ...(pagination?.take != null && { take: pagination.take }),
       orderBy: { createdAt: "desc" },
     });
+  },
+
+  postsConnection: async (_parent, { where, orderBy, first, after }, { prisma }) => {
+    const take = first ?? 10;
+    const cursor = after ? decodeCursor(after) : undefined;
+    const prismaWhere = buildPrismaWhere(where as Record<string, unknown> | null);
+
+    const orderByField = orderBy?.createdAt ?? orderBy?.title ?? "desc";
+    const orderByKey = orderBy?.createdAt ? "createdAt" : orderBy?.title ? "title" : "createdAt";
+
+    const [posts, totalCount] = await Promise.all([
+      prisma.post.findMany({
+        where: prismaWhere,
+        orderBy: { [orderByKey]: orderByField },
+        take: take + 1, // busca um a mais para saber se há próxima página
+        ...(cursor != null && {
+          cursor: { id: cursor },
+          skip: 1, // pula o cursor
+        }),
+      }),
+      prisma.post.count({ where: prismaWhere }),
+    ]);
+
+    const hasNextPage = posts.length > take;
+    const nodes = hasNextPage ? posts.slice(0, take) : posts;
+
+    const edges = nodes.map((post) => ({
+      cursor: encodeCursor(post.id),
+      node: post,
+    }));
+
+    return {
+      edges,
+      totalCount,
+      pageInfo: {
+        hasNextPage,
+        hasPreviousPage: cursor != null,
+        startCursor: edges[0]?.cursor ?? null,
+        endCursor: edges[edges.length - 1]?.cursor ?? null,
+      },
+    };
   },
 
   comments: (_parent, { postId, pagination }, { prisma }) => {
