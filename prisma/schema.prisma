@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,111 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+// ─────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  password       String
+  name           String
+  role           Role      @default(USER)
+  profilePicture String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 1:N — posts criados por este usuário
+  posts    Post[]
+
+  // 1:N — comentários feitos por este usuário
+  comments Comment[]
+
+  // N:N — likes dados por este usuário
+  likes Like[]
+
+  // N:N self-relation — seguidores e seguindo
+  followers Follow[] @relation("following") // quem me segue
+  following Follow[] @relation("follower")  // quem eu sigo
+}
+
+model Post {
+  id        String  @id @default(uuid())
+  title     String
+  content   String
+  published Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // N:1 — autor do post
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // 1:N — comentários neste post
+  comments Comment[]
+
+  // N:N — likes neste post
+  likes Like[]
+}
+
+model Comment {
+  id      String @id @default(uuid())
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // N:1 — autor do comentário
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // N:1 — post ao qual pertence
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // N:1
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // N:1
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // garante que um usuário só dá um like por post
+  @@unique([userId, postId])
+}
+
+model Follow {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  // quem está seguindo
+  followerId String
+  follower   User   @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+
+  // quem está sendo seguido
+  followingId String
+  following   User   @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  // um usuário não pode seguir o mesmo usuário duas vezes
+  @@unique([followerId, followingId])
 }
