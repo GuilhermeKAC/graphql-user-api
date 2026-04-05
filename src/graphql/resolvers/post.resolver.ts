@@ -1,4 +1,5 @@
 import type { QueryResolvers, MutationResolvers, PostResolvers, CommentResolvers } from "../generated/types.js";
+import pubsub, { EVENTS } from "../../config/pubsub.js";
 
 export const postQueryResolvers: Pick<QueryResolvers, "post" | "posts" | "comments"> = {
   post: (_parent, { id }, { prisma }) => {
@@ -31,10 +32,10 @@ export const postMutationResolvers: Pick<
   MutationResolvers,
   "createPost" | "updatePost" | "deletePost" | "likePost" | "unlikePost" | "createComment" | "deleteComment"
 > = {
-  createPost: (_parent, { data }, { user, prisma }) => {
+  createPost: async (_parent, { data }, { user, prisma }) => {
     if (!user) throw new Error("Não autenticado");
 
-    return prisma.post.create({
+    const post = await prisma.post.create({
       data: {
         title: data.title,
         content: data.content,
@@ -42,6 +43,9 @@ export const postMutationResolvers: Pick<
         authorId: user.id,
       },
     });
+
+    await pubsub.publish(EVENTS.POST_CREATED, post);
+    return post;
   },
 
   updatePost: async (_parent, { id, data }, { user, prisma }) => {
@@ -53,7 +57,7 @@ export const postMutationResolvers: Pick<
       throw new Error("Sem permissão");
     }
 
-    return prisma.post.update({
+    const updated = await prisma.post.update({
       where: { id },
       data: {
         ...(data.title != null && { title: data.title }),
@@ -61,6 +65,9 @@ export const postMutationResolvers: Pick<
         ...(data.published != null && { published: data.published }),
       },
     });
+
+    await pubsub.publish(EVENTS.POST_UPDATED, updated);
+    return updated;
   },
 
   deletePost: async (_parent, { id }, { user, prisma }) => {
@@ -90,12 +97,15 @@ export const postMutationResolvers: Pick<
     return true;
   },
 
-  createComment: (_parent, { data }, { user, prisma }) => {
+  createComment: async (_parent, { data }, { user, prisma }) => {
     if (!user) throw new Error("Não autenticado");
 
-    return prisma.comment.create({
+    const comment = await prisma.comment.create({
       data: { content: data.content, postId: data.postId, authorId: user.id },
     });
+
+    await pubsub.publish(`${EVENTS.COMMENT_ADDED}.${data.postId}`, comment);
+    return comment;
   },
 
   deleteComment: async (_parent, { id }, { user, prisma }) => {

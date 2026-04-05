@@ -1,16 +1,77 @@
 import "dotenv/config";
-import { ApolloServer } from "@apollo/server";
-import { startStandaloneServer } from "@apollo/server/standalone";
+import { createServer } from "http";
+import { ApolloServer, HeaderMap } from "@apollo/server";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/use/ws";
 import { schema } from "./graphql/schema/index.js";
 import { createContext } from "./graphql/context/index.js";
 
-const server = new ApolloServer({ schema });
+const apolloServer = new ApolloServer({ schema });
+await apolloServer.start();
+
+const httpServer = createServer(async (req, res) => {
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+    });
+    res.end();
+    return;
+  }
+
+  // Lê o body da requisição
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.from(chunk as ArrayBuffer));
+  }
+  const bodyText = Buffer.concat(chunks).toString("utf8");
+
+  // Monta os headers no formato do Apollo
+  const headers = new HeaderMap();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) {
+      headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+    }
+  }
+
+  const response = await apolloServer.executeHTTPGraphQLRequest({
+    httpGraphQLRequest: {
+      method: req.method ?? "POST",
+      headers,
+      body: bodyText ? (JSON.parse(bodyText) as unknown) : null,
+      search: req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "",
+    },
+    context: () => createContext(req),
+  });
+
+  // Escreve o status e headers da resposta
+  res.writeHead(
+    response.status ?? 200,
+    Object.fromEntries(
+      [...response.headers].map(([k, v]) => [k, v])
+    )
+  );
+
+  // Escreve o body da resposta
+  if (response.body.kind === "complete") {
+    res.end(response.body.string);
+  } else {
+    for await (const chunk of response.body.asyncIterator) {
+      res.write(chunk);
+    }
+    res.end();
+  }
+});
+
+// Servidor WebSocket para subscriptions
+const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" });
+useServer({ schema }, wsServer);
 
 const port = Number(process.env["PORT"] ?? 4000);
 
-const { url } = await startStandaloneServer(server, {
-  context: async ({ req }) => createContext(req),
-  listen: { port },
+httpServer.listen(port, () => {
+  console.log(`🚀 GraphQL API rodando em http://localhost:${port}/graphql`);
+  console.log(`📡 Subscriptions prontas em ws://localhost:${port}/graphql`);
 });
-
-console.log(`🚀 GraphQL API rodando em ${url}`);
