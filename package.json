@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "codegen": "graphql-codegen --config codegen.ts",
@@ -23,6 +23,7 @@
     "@types/node": "^25.5.2",
     "@types/pg": "^8.20.0",
     "ts-node-dev": "^2.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   },
   "dependencies": {
