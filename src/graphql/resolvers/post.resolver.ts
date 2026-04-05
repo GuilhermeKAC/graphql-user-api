@@ -123,12 +123,16 @@ export const postMutationResolvers: Pick<
 };
 
 export const postFieldResolvers: PostResolvers = {
-  author: (parent, _args, { prisma }) => {
-    return prisma.user.findUniqueOrThrow({ where: { id: parent.authorId } });
+  // DataLoader: agrupa todas as buscas de author em uma query IN
+  author: async (parent, _args, { loaders }) => {
+    const user = await loaders.user.load(parent.authorId);
+    if (!user) throw new Error("Autor não encontrado");
+    return user;
   },
 
-  comments: (parent, _args, { prisma }) => {
-    return prisma.comment.findMany({ where: { postId: parent.id } });
+  // DataLoader: agrupa todos os comentários por post em uma query IN
+  comments: (parent, _args, { loaders }) => {
+    return loaders.commentsByPost.load(parent.id);
   },
 
   likesCount: (parent, _args, { prisma }) => {
@@ -145,11 +149,17 @@ export const postFieldResolvers: PostResolvers = {
 };
 
 export const commentFieldResolvers: CommentResolvers = {
-  author: (parent, _args, { prisma }) => {
-    return prisma.user.findUniqueOrThrow({ where: { id: parent.authorId } });
+  // DataLoader: agrupa todas as buscas de author em uma query IN
+  author: async (parent, _args, { loaders }) => {
+    const user = await loaders.user.load(parent.authorId);
+    if (!user) throw new Error("Autor não encontrado");
+    return user;
   },
 
-  post: (parent, _args, { prisma }) => {
-    return prisma.post.findUniqueOrThrow({ where: { id: parent.postId } });
+  // DataLoader: agrupa todas as buscas de post em uma query IN
+  post: async (parent, _args, { loaders }) => {
+    const post = await loaders.post.load(parent.postId);
+    if (!post) throw new Error("Post não encontrado");
+    return post;
   },
 };

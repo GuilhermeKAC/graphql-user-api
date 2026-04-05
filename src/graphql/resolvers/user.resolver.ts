@@ -112,8 +112,8 @@ export const userFieldResolvers: UserResolvers = {
     return prisma.post.findMany({ where: { authorId: parent.id } });
   },
 
-  comments: (parent, _args, { prisma }) => {
-    return prisma.comment.findMany({ where: { authorId: parent.id } });
+  comments: (parent, _args, { loaders }) => {
+    return loaders.commentsByPost.load(parent.id);
   },
 
   followers: async (parent, _args, { prisma }) => {
