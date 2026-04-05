@@ -1,0 +1,67 @@
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+type User {
+  id: ID!
+  email: String!
+  name: String!
+  role: Role!
+  profilePicture: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+
+  posts: [Post!]!
+  comments: [Comment!]!
+  followers: [User!]!
+  following: [User!]!
+  likesCount: Int!
+}
+
+# ── Inputs ────────────────────────────────
+
+input CreateUserInput {
+  email: String!
+  password: String!
+  name: String!
+  role: Role
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  password: String
+  profilePicture: String
+}
+
+input UsersFilterInput {
+  name: String
+  email: String
+  role: Role
+}
+
+# ── Pagination ────────────────────────────
+
+input PaginationInput {
+  skip: Int
+  take: Int
+}
+
+# ── Queries & Mutations ───────────────────
+
+type Query {
+  me: User!
+  user(id: ID!): User
+  users(filter: UsersFilterInput, pagination: PaginationInput): [User!]!
+}
+
+type Mutation {
+  createUser(data: CreateUserInput!): User!
+  updateUser(data: UpdateUserInput!): User!
+  deleteUser: Boolean!
+  uploadProfilePicture(file: Upload!): User!
+  followUser(userId: ID!): Boolean!
+  unfollowUser(userId: ID!): Boolean!
+}
